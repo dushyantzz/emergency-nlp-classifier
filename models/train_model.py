@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-Emergency Classifier Model Training - SIH 2025
-Fine-tunes DistilBERT for multi-class emergency classification
-
-Author: Team Daredevils - AI/ML Developer
-"""
-
 import os
 import pandas as pd
 import numpy as np

@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Model Testing and Evaluation - SIH 2025
-Test both PyTorch and TFLite models with various scenarios
-"""
-
 import os
 import json
 import numpy as np

@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-"""
-TensorFlow Lite Model Converter - SIH 2025
-Converts trained DistilBERT model to optimized TFLite format for mobile deployment
-
-Optimizations:
-- INT8 quantization (69% size reduction)
-- NNAPI support for hardware acceleration
-- Optimized for mobile CPU/GPU
-"""
-
 import os
 import json
 import numpy as np
