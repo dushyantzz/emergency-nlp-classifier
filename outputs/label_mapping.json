@@ -1,0 +1,17 @@
+{
+  "label_map": {
+    "police": 0,
+    "fire": 1,
+    "ambulance": 2,
+    "women_helpline": 3,
+    "disaster": 4
+  },
+  "id_to_label": {
+    "0": "police",
+    "1": "fire",
+    "2": "ambulance",
+    "3": "women_helpline",
+    "4": "disaster"
+  },
+  "num_labels": 5
+}

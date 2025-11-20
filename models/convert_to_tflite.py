@@ -135,30 +135,37 @@ class TFLiteConverter:
             print("Applying INT8 quantization (smallest size, best for mobile)...")
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
             converter.representative_dataset = self.get_representative_dataset(tokenizer)
+            # Use TFLITE_BUILTINS instead of TFLITE_BUILTINS_INT8 to allow int32 inputs
+            # This quantizes weights but keeps I/O types flexible
             converter.target_spec.supported_ops = [
-                tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
-                tf.lite.OpsSet.TFLITE_BUILTINS
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
             ]
-            converter.inference_input_type = tf.int32
-            converter.inference_output_type = tf.float32
+            # Don't set inference types - allows int32 inputs (token IDs) and float32 outputs
             
         elif self.config['quantization'] == 'FP16':
             print("Applying FP16 quantization (balanced size/accuracy)...")
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
             converter.target_spec.supported_types = [tf.float16]
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
             
         elif self.config['quantization'] == 'DYNAMIC':
             print("Applying dynamic range quantization...")
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
             
         else:
             print("No quantization applied (largest size, best accuracy)...")
-        
-        # Enable NNAPI for hardware acceleration
-        converter.target_spec.supported_ops = [
-            tf.lite.OpsSet.TFLITE_BUILTINS,
-            tf.lite.OpsSet.SELECT_TF_OPS
-        ]
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
         
         # Convert
         tflite_model = converter.convert()

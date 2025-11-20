@@ -1,0 +1,36 @@
+{
+  "model_name": "emergency_classifier",
+  "version": "1.0.0",
+  "framework": "TensorFlow Lite",
+  "quantization": "INT8",
+  "input_shape": [
+    1,
+    128
+  ],
+  "output_shape": [
+    1,
+    5
+  ],
+  "max_sequence_length": 128,
+  "model_size_mb": 64.75,
+  "categories": [
+    "police",
+    "fire",
+    "ambulance",
+    "women_helpline",
+    "disaster"
+  ],
+  "usage": {
+    "input_format": "Text string (2-3 sentences)",
+    "output_format": "Logits array (5 classes)",
+    "categories": {
+      "police": 0,
+      "fire": 1,
+      "ambulance": 2,
+      "women_helpline": 3,
+      "disaster": 4
+    },
+    "preprocessing": "Tokenize with vocab.txt, pad to max_length=128",
+    "postprocessing": "Apply softmax to logits, argmax for prediction"
+  }
+}
