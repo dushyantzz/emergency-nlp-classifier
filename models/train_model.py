@@ -6,9 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 from transformers import (
     DistilBertTokenizer,
-    TFDistilBertForSequenceClassification,
-    TFTrainingArguments,
-    TFTrainer
+    TFDistilBertForSequenceClassification
 )
 import json
 from tqdm import tqdm
@@ -175,7 +173,7 @@ class EmergencyClassifierTrainer:
             weight_decay=self.config['weight_decay']
         )
         
-        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, name='sparse_categorical_crossentropy')
         metrics = [tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')]
         
         model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
