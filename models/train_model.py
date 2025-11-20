@@ -18,7 +18,7 @@ CONFIG = {
     'max_length': 128,
     'batch_size': 16,
     'learning_rate': 2e-5,
-    'num_epochs': 3,
+    'num_epochs': 2,
     'warmup_steps': 500,
     'weight_decay': 0.01,
     'output_dir': 'outputs/trained_model',
@@ -40,7 +40,7 @@ class EmergencyClassifierTrainer:
         np.random.seed(config['seed'])
         os.environ['PYTHONHASHSEED'] = str(config['seed'])
         
-        # Check for GPU
+        # Check for GPU and configure
         gpus = tf.config.list_physical_devices('GPU')
         if gpus:
             print(f"💻 Using GPU: {gpus[0]}")
@@ -48,10 +48,13 @@ class EmergencyClassifierTrainer:
                 # Enable memory growth
                 for gpu in gpus:
                     tf.config.experimental.set_memory_growth(gpu, True)
+                # Set GPU as default device
+                tf.config.set_visible_devices(gpus[0], 'GPU')
             except RuntimeError as e:
                 print(e)
         else:
-            print("💻 Using CPU")
+            print("⚠️  WARNING: No GPU found! Training will use CPU (slower).")
+            print("   Please ensure GPU drivers and CUDA are properly installed for GPU training.")
         
         # Label mapping
         self.label_map = {
@@ -162,21 +165,42 @@ class EmergencyClassifierTrainer:
         """Create DistilBERT model for classification"""
         print(f"\n🤖 Creating model: {self.config['model_name']}")
         
-        model = TFDistilBertForSequenceClassification.from_pretrained(
-            self.config['model_name'],
-            num_labels=len(self.label_map)
-        )
-        
-        # Compile model
-        optimizer = tf.keras.optimizers.AdamW(
-            learning_rate=self.config['learning_rate'],
-            weight_decay=self.config['weight_decay']
-        )
-        
-        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, name='sparse_categorical_crossentropy')
-        metrics = [tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')]
-        
-        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        # Use GPU strategy if available
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            strategy = tf.distribute.OneDeviceStrategy(device=f"/gpu:0")
+            with strategy.scope():
+                model = TFDistilBertForSequenceClassification.from_pretrained(
+                    self.config['model_name'],
+                    num_labels=len(self.label_map)
+                )
+                
+                # Compile model within strategy scope
+                optimizer = tf.keras.optimizers.AdamW(
+                    learning_rate=self.config['learning_rate'],
+                    weight_decay=self.config['weight_decay']
+                )
+                
+                loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, name='sparse_categorical_crossentropy')
+                metrics = [tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')]
+                
+                model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        else:
+            model = TFDistilBertForSequenceClassification.from_pretrained(
+                self.config['model_name'],
+                num_labels=len(self.label_map)
+            )
+            
+            # Compile model
+            optimizer = tf.keras.optimizers.AdamW(
+                learning_rate=self.config['learning_rate'],
+                weight_decay=self.config['weight_decay']
+            )
+            
+            loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, name='sparse_categorical_crossentropy')
+            metrics = [tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')]
+            
+            model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         
         # Count parameters
         total_params = sum([tf.size(w).numpy() for w in model.trainable_variables])
