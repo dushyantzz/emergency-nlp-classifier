@@ -192,11 +192,36 @@ class TFLiteConverter:
         print(f"✅ TFLite model saved: {tflite_path}")
         print(f"   Size: {model_size_mb:.2f} MB")
         
+        # Save vocabulary and all tokenizer files needed for Android
+        print("\n📦 Copying tokenizer files for Android deployment...")
+        
         # Save vocabulary
         vocab_path = os.path.join(self.config['output_dir'], 'vocab.txt')
         tokenizer.save_vocabulary(self.config['output_dir'])
         if os.path.exists(os.path.join(self.config['output_dir'], 'vocab.txt')):
             print(f"✅ Vocabulary saved: {vocab_path}")
+            print("   Note: '[unused]' tokens are normal for DistilBERT - they are placeholder tokens")
+        
+        # Copy tokenizer configuration files
+        tokenizer_files = [
+            'tokenizer_config.json',
+            'special_tokens_map.json'
+        ]
+        
+        # Check if tokenizer.json exists (HuggingFace format)
+        tokenizer_json_path = os.path.join(self.config['model_dir'], 'tokenizer.json')
+        if os.path.exists(tokenizer_json_path):
+            tokenizer_files.append('tokenizer.json')
+        
+        for filename in tokenizer_files:
+            src_path = os.path.join(self.config['model_dir'], filename)
+            dst_path = os.path.join(self.config['output_dir'], filename)
+            
+            if os.path.exists(src_path):
+                shutil.copy2(src_path, dst_path)
+                print(f"✅ {filename} copied to outputs/")
+            else:
+                print(f"⚠️  {filename} not found in model directory")
         
         # Save label mapping
         label_path = os.path.join(self.config['output_dir'], 'label_mapping.json')
@@ -311,15 +336,41 @@ def main():
     # Test model
     converter.test_tflite_model(tflite_path, tokenizer)
     
-    print("\n" + "="*80)
-    print("✨ Conversion pipeline complete!")
-    print(f"📦 Model ready for deployment: {tflite_path}")
-    print(f"📊 Final model size: {model_size:.2f} MB")
-    print("\n👉 Next steps:")
-    print("   1. Copy files from outputs/ to your Android app's assets/ folder")
-    print("   2. Integrate TFLite interpreter in Kotlin code")
-    print("   3. Test on mobile device")
-    print("="*80)
+        # Create Android deployment file list
+        android_files_path = os.path.join(self.config['output_dir'], 'ANDROID_FILES_LIST.txt')
+        with open(android_files_path, 'w') as f:
+            f.write("Files Required for Android Deployment\n")
+            f.write("=" * 50 + "\n\n")
+            f.write("Copy these files from outputs/ to app/src/main/assets/:\n\n")
+            f.write("1. emergency_classifier.tflite (TFLite model)\n")
+            f.write("2. vocab.txt (Vocabulary - includes [unused] tokens - this is normal!)\n")
+            f.write("3. tokenizer_config.json (Tokenizer configuration)\n")
+            f.write("4. special_tokens_map.json (Special tokens mapping)\n")
+            f.write("5. label_mapping.json (Label to ID mapping)\n")
+            f.write("\nOptional:\n")
+            f.write("- deployment_info.json (Model metadata)\n")
+            f.write("- ANDROID_DEPLOYMENT_GUIDE.md (Detailed integration guide)\n")
+            f.write("\n" + "=" * 50 + "\n")
+            f.write("IMPORTANT: The '[unused]' tokens in vocab.txt are NORMAL!\n")
+            f.write("They are part of DistilBERT vocabulary - DO NOT remove them.\n")
+        
+        print("\n" + "="*80)
+        print("✨ Conversion pipeline complete!")
+        print(f"📦 Model ready for deployment: {tflite_path}")
+        print(f"📊 Final model size: {model_size:.2f} MB")
+        print("\n📱 Android Deployment Files:")
+        print("   ✅ emergency_classifier.tflite")
+        print("   ✅ vocab.txt (Note: '[unused]' tokens are normal - part of DistilBERT)")
+        print("   ✅ tokenizer_config.json")
+        print("   ✅ special_tokens_map.json")
+        print("   ✅ label_mapping.json")
+        print("\n📖 See ANDROID_DEPLOYMENT_GUIDE.md for detailed integration instructions")
+        print("\n👉 Next steps:")
+        print("   1. Copy all files from outputs/ to your Android app's assets/ folder")
+        print("   2. Read ANDROID_DEPLOYMENT_GUIDE.md for integration code")
+        print("   3. Integrate TFLite interpreter in Kotlin code")
+        print("   4. Test on mobile device")
+        print("="*80)
 
 
 if __name__ == "__main__":
