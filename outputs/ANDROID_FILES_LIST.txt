@@ -1,0 +1,18 @@
+Files Required for Android Deployment
+==================================================
+
+Copy these files from outputs/ to app/src/main/assets/:
+
+1. emergency_classifier.tflite (TFLite model)
+2. vocab.txt (Vocabulary - includes [unused] tokens - this is normal!)
+3. tokenizer_config.json (Tokenizer configuration)
+4. special_tokens_map.json (Special tokens mapping)
+5. label_mapping.json (Label to ID mapping)
+
+Optional:
+- deployment_info.json (Model metadata)
+- ANDROID_DEPLOYMENT_GUIDE.md (Detailed integration guide)
+
+==================================================
+IMPORTANT: The '[unused]' tokens in vocab.txt are NORMAL!
+They are part of DistilBERT vocabulary - DO NOT remove them.

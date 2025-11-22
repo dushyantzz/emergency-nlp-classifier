@@ -20,6 +20,7 @@ class TFLiteConverter:
     
     def __init__(self, config=CONFIG):
         self.config = config
+        self.num_labels = None  # Will be set when model is loaded
         
         if not os.path.exists(config['model_dir']):
             raise FileNotFoundError(
@@ -27,38 +28,39 @@ class TFLiteConverter:
                 "Run 'python models/train_model.py' first."
             )
         
-        print("🔄 TFLite Converter Initialized")
+        print("TFLite Converter Initialized")
         print(f"Model directory: {config['model_dir']}")
         print(f"Quantization: {config['quantization']}")
     
     def load_tensorflow_model(self):
         """Load trained TensorFlow model"""
-        print("\n📂 Loading TensorFlow model...")
+        print("\n[1/3] Loading TensorFlow model...")
         
         # Load label mapping
         with open(f"{self.config['model_dir']}/label_mapping.json", 'r') as f:
             label_config = json.load(f)
         
         num_labels = label_config['num_labels']
+        self.num_labels = num_labels  # Store for use in concrete function
         print(f"Number of labels: {num_labels}")
         
         # Load tokenizer
         tokenizer = DistilBertTokenizer.from_pretrained(self.config['model_dir'])
         
         # Load TensorFlow model
-        print("\n📥 Loading TensorFlow model...")
+        print("\n[2/3] Loading TensorFlow model weights...")
         model = TFDistilBertForSequenceClassification.from_pretrained(
             self.config['model_dir'],
             num_labels=num_labels
         )
         
-        print("✅ Model loaded successfully")
+        print("[OK] Model loaded successfully")
         
         return model, tokenizer, label_config
     
     def create_concrete_function(self, model):
         """Create concrete function for TFLite conversion"""
-        print("\n🔨 Creating concrete function...")
+        print("\n[3/3] Creating concrete function...")
         
         @tf.function(
             input_signature=[
@@ -72,16 +74,19 @@ class TFLiteConverter:
                 attention_mask=attention_mask,
                 training=False
             )
-            return {'logits': outputs.logits}
+            # Return logits directly (not in a dict) for better mobile compatibility
+            return outputs.logits
         
         concrete_func = serving_fn.get_concrete_function()
-        print("✅ Concrete function created")
+        print("[OK] Concrete function created")
+        print(f"   Input shape: [1, {self.config['max_length']}] (input_ids, attention_mask)")
+        print(f"   Output shape: [1, {self.num_labels}] (logits)")
         
         return concrete_func
     
     def get_representative_dataset(self, tokenizer):
         """Generate representative dataset for quantization"""
-        print("\n📊 Generating representative dataset for quantization...")
+        print("\nGenerating representative dataset for quantization...")
         
         sample_texts = [
             "Help someone is attacking me with knife",
@@ -126,7 +131,7 @@ class TFLiteConverter:
     
     def convert_to_tflite(self, concrete_func, tokenizer):
         """Convert to TensorFlow Lite with optimizations"""
-        print(f"\n🚀 Converting to TFLite ({self.config['quantization']} quantization)...")
+        print(f"\nConverting to TFLite ({self.config['quantization']} quantization)...")
         
         converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
         
@@ -170,13 +175,13 @@ class TFLiteConverter:
         # Convert
         tflite_model = converter.convert()
         
-        print("✅ Conversion successful!")
+        print("[OK] Conversion successful!")
         
         return tflite_model
     
     def save_model(self, tflite_model, tokenizer, label_config):
         """Save TFLite model and supporting files"""
-        print(f"\n💾 Saving model to {self.config['output_dir']}...")
+        print(f"\nSaving model to {self.config['output_dir']}...")
         
         os.makedirs(self.config['output_dir'], exist_ok=True)
         
@@ -189,18 +194,18 @@ class TFLiteConverter:
             f.write(tflite_model)
         
         model_size_mb = len(tflite_model) / (1024 * 1024)
-        print(f"✅ TFLite model saved: {tflite_path}")
-        print(f"   Size: {model_size_mb:.2f} MB")
+        print(f"[OK] TFLite model saved: {tflite_path}")
+        print(f"     Size: {model_size_mb:.2f} MB")
         
         # Save vocabulary and all tokenizer files needed for Android
-        print("\n📦 Copying tokenizer files for Android deployment...")
+        print("\nCopying tokenizer files for Android deployment...")
         
         # Save vocabulary
         vocab_path = os.path.join(self.config['output_dir'], 'vocab.txt')
         tokenizer.save_vocabulary(self.config['output_dir'])
         if os.path.exists(os.path.join(self.config['output_dir'], 'vocab.txt')):
-            print(f"✅ Vocabulary saved: {vocab_path}")
-            print("   Note: '[unused]' tokens are normal for DistilBERT - they are placeholder tokens")
+            print(f"[OK] Vocabulary saved: {vocab_path}")
+            print("     Note: '[unused]' tokens are normal for DistilBERT - they are placeholder tokens")
         
         # Copy tokenizer configuration files
         tokenizer_files = [
@@ -219,15 +224,15 @@ class TFLiteConverter:
             
             if os.path.exists(src_path):
                 shutil.copy2(src_path, dst_path)
-                print(f"✅ {filename} copied to outputs/")
+                print(f"[OK] {filename} copied to outputs/")
             else:
-                print(f"⚠️  {filename} not found in model directory")
+                print(f"[WARN] {filename} not found in model directory")
         
         # Save label mapping
         label_path = os.path.join(self.config['output_dir'], 'label_mapping.json')
         with open(label_path, 'w') as f:
             json.dump(label_config, f, indent=2)
-        print(f"✅ Label mapping saved: {label_path}")
+        print(f"[OK] Label mapping saved: {label_path}")
         
         # Create deployment info
         deployment_info = {
@@ -252,13 +257,13 @@ class TFLiteConverter:
         deployment_path = os.path.join(self.config['output_dir'], 'deployment_info.json')
         with open(deployment_path, 'w') as f:
             json.dump(deployment_info, f, indent=2)
-        print(f"✅ Deployment info saved: {deployment_path}")
+        print(f"[OK] Deployment info saved: {deployment_path}")
         
         return tflite_path, model_size_mb
     
     def test_tflite_model(self, tflite_path, tokenizer):
         """Test the converted TFLite model"""
-        print("\n🧪 Testing TFLite model...")
+        print("\nTesting TFLite model...")
         
         # Load TFLite model
         interpreter = tf.lite.Interpreter(model_path=tflite_path)
@@ -304,18 +309,18 @@ class TFLiteConverter:
         
         categories = ['police', 'fire', 'ambulance', 'women_helpline', 'disaster']
         
-        print(f"\n🎯 Prediction: {categories[predicted_idx]}")
+        print(f"\nPrediction: {categories[predicted_idx]}")
         print(f"Confidence: {probs[predicted_idx]*100:.2f}%")
         print(f"\nAll probabilities:")
         for i, cat in enumerate(categories):
             print(f"  {cat}: {probs[i]*100:.2f}%")
         
-        print("\n✅ TFLite model test successful!")
+        print("\n[OK] TFLite model test successful!")
 
 
 def main():
     """Main execution"""
-    print("🔧 TensorFlow Lite Converter - SIH 2025")
+    print("TensorFlow Lite Converter - SIH 2025")
     print("="*80)
     
     # Initialize converter
@@ -336,41 +341,41 @@ def main():
     # Test model
     converter.test_tflite_model(tflite_path, tokenizer)
     
-        # Create Android deployment file list
-        android_files_path = os.path.join(self.config['output_dir'], 'ANDROID_FILES_LIST.txt')
-        with open(android_files_path, 'w') as f:
-            f.write("Files Required for Android Deployment\n")
-            f.write("=" * 50 + "\n\n")
-            f.write("Copy these files from outputs/ to app/src/main/assets/:\n\n")
-            f.write("1. emergency_classifier.tflite (TFLite model)\n")
-            f.write("2. vocab.txt (Vocabulary - includes [unused] tokens - this is normal!)\n")
-            f.write("3. tokenizer_config.json (Tokenizer configuration)\n")
-            f.write("4. special_tokens_map.json (Special tokens mapping)\n")
-            f.write("5. label_mapping.json (Label to ID mapping)\n")
-            f.write("\nOptional:\n")
-            f.write("- deployment_info.json (Model metadata)\n")
-            f.write("- ANDROID_DEPLOYMENT_GUIDE.md (Detailed integration guide)\n")
-            f.write("\n" + "=" * 50 + "\n")
-            f.write("IMPORTANT: The '[unused]' tokens in vocab.txt are NORMAL!\n")
-            f.write("They are part of DistilBERT vocabulary - DO NOT remove them.\n")
-        
-        print("\n" + "="*80)
-        print("✨ Conversion pipeline complete!")
-        print(f"📦 Model ready for deployment: {tflite_path}")
-        print(f"📊 Final model size: {model_size:.2f} MB")
-        print("\n📱 Android Deployment Files:")
-        print("   ✅ emergency_classifier.tflite")
-        print("   ✅ vocab.txt (Note: '[unused]' tokens are normal - part of DistilBERT)")
-        print("   ✅ tokenizer_config.json")
-        print("   ✅ special_tokens_map.json")
-        print("   ✅ label_mapping.json")
-        print("\n📖 See ANDROID_DEPLOYMENT_GUIDE.md for detailed integration instructions")
-        print("\n👉 Next steps:")
-        print("   1. Copy all files from outputs/ to your Android app's assets/ folder")
-        print("   2. Read ANDROID_DEPLOYMENT_GUIDE.md for integration code")
-        print("   3. Integrate TFLite interpreter in Kotlin code")
-        print("   4. Test on mobile device")
-        print("="*80)
+    # Create Android deployment file list
+    android_files_path = os.path.join(converter.config['output_dir'], 'ANDROID_FILES_LIST.txt')
+    with open(android_files_path, 'w') as f:
+        f.write("Files Required for Android Deployment\n")
+        f.write("=" * 50 + "\n\n")
+        f.write("Copy these files from outputs/ to app/src/main/assets/:\n\n")
+        f.write("1. emergency_classifier.tflite (TFLite model)\n")
+        f.write("2. vocab.txt (Vocabulary - includes [unused] tokens - this is normal!)\n")
+        f.write("3. tokenizer_config.json (Tokenizer configuration)\n")
+        f.write("4. special_tokens_map.json (Special tokens mapping)\n")
+        f.write("5. label_mapping.json (Label to ID mapping)\n")
+        f.write("\nOptional:\n")
+        f.write("- deployment_info.json (Model metadata)\n")
+        f.write("- ANDROID_DEPLOYMENT_GUIDE.md (Detailed integration guide)\n")
+        f.write("\n" + "=" * 50 + "\n")
+        f.write("IMPORTANT: The '[unused]' tokens in vocab.txt are NORMAL!\n")
+        f.write("They are part of DistilBERT vocabulary - DO NOT remove them.\n")
+    
+    print("\n" + "="*80)
+    print("Conversion pipeline complete!")
+    print(f"Model ready for deployment: {tflite_path}")
+    print(f"Final model size: {model_size:.2f} MB")
+    print("\nAndroid Deployment Files:")
+    print("   [OK] emergency_classifier.tflite")
+    print("   [OK] vocab.txt (Note: '[unused]' tokens are normal - part of DistilBERT)")
+    print("   [OK] tokenizer_config.json")
+    print("   [OK] special_tokens_map.json")
+    print("   [OK] label_mapping.json")
+    print("\nSee ANDROID_DEPLOYMENT_GUIDE.md for detailed integration instructions")
+    print("\nNext steps:")
+    print("   1. Copy all files from outputs/ to your Android app's assets/ folder")
+    print("   2. Read ANDROID_DEPLOYMENT_GUIDE.md for integration code")
+    print("   3. Integrate TFLite interpreter in Kotlin code")
+    print("   4. Test on mobile device")
+    print("="*80)
 
 
 if __name__ == "__main__":
