@@ -1,0 +1,28 @@
+{
+  "model_path": "outputs/emergency_classifier.tflite",
+  "model_size_mb": 64.66,
+  "accuracy": 50.0,
+  "quantization": "dynamic_range",
+  "input_shape": [
+    1,
+    128
+  ],
+  "output_shape": [
+    1,
+    5
+  ],
+  "input_types": [
+    "int32",
+    "int32"
+  ],
+  "output_type": "float32",
+  "num_inputs": 2,
+  "num_outputs": 1,
+  "categories": [
+    "police",
+    "fire",
+    "ambulance",
+    "women_helpline",
+    "disaster"
+  ]
+}

@@ -186,21 +186,21 @@ class EmergencyClassifierTrainer:
                 
                 model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         else:
-            model = TFDistilBertForSequenceClassification.from_pretrained(
-                self.config['model_name'],
-                num_labels=len(self.label_map)
-            )
-            
-            # Compile model
-            optimizer = tf.keras.optimizers.AdamW(
-                learning_rate=self.config['learning_rate'],
-                weight_decay=self.config['weight_decay']
-            )
-            
-            loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, name='sparse_categorical_crossentropy')
-            metrics = [tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')]
-            
-            model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        model = TFDistilBertForSequenceClassification.from_pretrained(
+            self.config['model_name'],
+            num_labels=len(self.label_map)
+        )
+        
+        # Compile model
+        optimizer = tf.keras.optimizers.AdamW(
+            learning_rate=self.config['learning_rate'],
+            weight_decay=self.config['weight_decay']
+        )
+        
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, name='sparse_categorical_crossentropy')
+        metrics = [tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')]
+        
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         
         # Count parameters
         total_params = sum([tf.size(w).numpy() for w in model.trainable_variables])
